@@ -1,5 +1,5 @@
 {
-  description = "A Nix-flake-based Go 1.22 development environment";
+  description = "A Nix-flake-based Go development environment";
 
   inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1";
 
@@ -9,7 +9,6 @@
       forEachSupportedSystem = f: inputs.nixpkgs.lib.genAttrs supportedSystems (system: f {
         pkgs = import inputs.nixpkgs {
           inherit system;
-          overlays = [ inputs.self.overlays.default ];
         };
       });
     in
