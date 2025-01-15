@@ -1,7 +1,9 @@
 {
-  description = "A Nix-flake-based Node.js development environment";
+  description = "A Nix-flake-based Flutter development environment";
 
-  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1";
+  inputs = {
+    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1";
+  };
 
   outputs = inputs:
     let
@@ -9,19 +11,16 @@
       forEachSupportedSystem = f: inputs.nixpkgs.lib.genAttrs supportedSystems (system: f {
         pkgs = import inputs.nixpkgs {
           inherit system;
-          overlays = [ inputs.self.overlays.default ];
         };
       });
     in
     {
-      overlays.default = final: prev: rec {
-        nodejs = prev.nodejs;
-        yarn = (prev.yarn.override { inherit nodejs; });
-      };
-
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
-          packages = with pkgs; [ node2nix nodejs nodePackages.pnpm yarn ];
+          packages = with pkgs; [
+            dart
+            flutter
+          ];
         };
       });
     };
