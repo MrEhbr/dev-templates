@@ -1,32 +1,42 @@
 {
-  description = "A Nix-flake-based Go development environment";
+  description = "A Nix-flake-based Go 1.22 development environment";
 
   inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/*.tar.gz";
 
-  outputs =
-    { self
-    , nixpkgs
-    ,
-    }:
+  outputs = { self, nixpkgs }:
     let
+      goVersion = 23; # Change this to update the whole stack
+
       supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
-      forEachSupportedSystem = f:
-        nixpkgs.lib.genAttrs supportedSystems (system:
-          f {
-            pkgs = import nixpkgs { inherit system; };
-          });
+      forEachSupportedSystem = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ self.overlays.default ];
+        };
+      });
     in
     {
+      overlays.default = final: prev: {
+        go = final."go_1_${toString goVersion}";
+      };
+
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
           packages = with pkgs; [
+            # go (version is specified by overlay)
             go
-            # goimports, godoc, formaters etc.
+
+            # goimports, godoc, etc.
             gotools
-            # Generators
-            go-minimock
+
+            # https://github.com/golangci/golangci-lint
+            golangci-lint
+
+            # https://github.com/goreleaser/goreleaser
+            goreleaser
           ];
         };
       });
     };
 }
+
