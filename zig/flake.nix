@@ -1,7 +1,7 @@
 {
-  description = "A Nix-flake-based PHP development environment";
+  description = "A Nix-flake-based Zig development environment";
 
-  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0"; # stable Nixpkgs
 
   outputs =
     { self, ... }@inputs:
@@ -18,7 +18,9 @@
         inputs.nixpkgs.lib.genAttrs supportedSystems (
           system:
           f {
-            pkgs = import inputs.nixpkgs { inherit system; };
+            pkgs = import inputs.nixpkgs {
+              inherit system;
+            };
           }
         );
     in
@@ -28,8 +30,9 @@
         {
           default = pkgs.mkShellNoCC {
             packages = with pkgs; [
-              php
-              phpPackages.composer
+              zig
+              zls
+              lldb
             ];
           };
         }
