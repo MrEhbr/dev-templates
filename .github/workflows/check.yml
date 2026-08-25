@@ -25,6 +25,8 @@ jobs:
         with:
           fail-mode: true
       - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
       - name: Check formatting
         run: nix develop --command check-formatting
       - name: Flake check
