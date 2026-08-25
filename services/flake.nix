@@ -3,54 +3,40 @@
 
   inputs = {
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+    flake-parts.url = "github:hercules-ci/flake-parts";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     services-flake.url = "github:juspay/services-flake";
   };
 
   outputs =
-    { self, ... }@inputs:
-
-    let
-      supportedSystems = [
+    inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
         "x86_64-linux"
         "aarch64-linux"
         "aarch64-darwin"
       ];
-      forEachSupportedSystem =
-        f:
-        inputs.nixpkgs.lib.genAttrs supportedSystems (
-          system:
-          f rec {
-            pkgs = import inputs.nixpkgs { inherit system; };
-            services = (import inputs.process-compose-flake.lib { inherit pkgs; }).evalModules {
-              modules = [
-                inputs.services-flake.processComposeModules.default
-                {
-                  services.postgres."pg".enable = true;
-                  services.postgres."pg".initialDatabases = [ { name = "dev"; } ];
-                  services.redis."redis".enable = true;
-                }
-              ];
-            };
-          }
-        );
-    in
-    {
-      # nix run .# starts every enabled service under process-compose
-      packages = forEachSupportedSystem (
-        { services, ... }:
-        {
-          default = services.config.outputs.package;
-        }
-      );
 
-      devShells = forEachSupportedSystem (
-        { pkgs, services }:
+      imports = [ inputs.process-compose-flake.flakeModule ];
+
+      perSystem =
+        { config, pkgs, ... }:
         {
-          default = pkgs.mkShellNoCC {
-            inputsFrom = [ services.config.services.outputs.devShell ];
+          # nix run .# starts every enabled service under process-compose
+          process-compose."default" = {
+            imports = [ inputs.services-flake.processComposeModules.default ];
+
+            services.postgres."pg" = {
+              enable = true;
+              initialDatabases = [ { name = "dev"; } ];
+            };
+
+            services.redis."redis".enable = true;
           };
-        }
-      );
+
+          devShells.default = pkgs.mkShellNoCC {
+            inputsFrom = [ config.process-compose."default".services.outputs.devShell ];
+          };
+        };
     };
 }
