@@ -150,6 +150,11 @@
             path = ./zig;
             description = "Zig development environment";
           };
+
+          services = {
+            path = ./services;
+            description = "Postgres and Redis services via services-flake";
+          };
         };
       };
 }
