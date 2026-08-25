@@ -1,37 +1,29 @@
 {
   description = "A Nix-flake-based PHP development environment";
 
-  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+  inputs = {
+    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+    flake-parts.url = "github:hercules-ci/flake-parts";
+  };
 
   outputs =
-    { self, ... }@inputs:
-
-    let
-      supportedSystems = [
+    inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
         "x86_64-linux"
         "aarch64-linux"
         "aarch64-darwin"
       ];
-      forEachSupportedSystem =
-        f:
-        inputs.nixpkgs.lib.genAttrs supportedSystems (
-          system:
-          f {
-            pkgs = import inputs.nixpkgs { inherit system; };
-          }
-        );
-    in
-    {
-      devShells = forEachSupportedSystem (
-        { pkgs }:
+
+      perSystem =
+        { pkgs, ... }:
         {
-          default = pkgs.mkShellNoCC {
+          devShells.default = pkgs.mkShellNoCC {
             packages = with pkgs; [
               php
               phpPackages.composer
             ];
           };
-        }
-      );
+        };
     };
 }

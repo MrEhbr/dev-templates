@@ -1,33 +1,24 @@
 {
   description = "A Nix-flake-based Java development environment";
 
-  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+  inputs = {
+    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+    flake-parts.url = "github:hercules-ci/flake-parts";
+  };
 
   outputs =
-    { self, ... }@inputs:
-
+    inputs:
     let
       javaVersion = 25; # Change this value to update the whole stack
-
-      supportedSystems = [
+    in
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
         "x86_64-linux"
         "aarch64-linux"
         "aarch64-darwin"
       ];
-      forEachSupportedSystem =
-        f:
-        inputs.nixpkgs.lib.genAttrs supportedSystems (
-          system:
-          f {
-            pkgs = import inputs.nixpkgs {
-              inherit system;
-              overlays = [ inputs.self.overlays.default ];
-            };
-          }
-        );
-    in
-    {
-      overlays.default =
+
+      flake.overlays.default =
         final: prev:
         let
           jdk = prev."jdk${toString javaVersion}";
@@ -39,10 +30,15 @@
           lombok = prev.lombok.override { inherit jdk; };
         };
 
-      devShells = forEachSupportedSystem (
-        { pkgs }:
+      perSystem =
+        { system, pkgs, ... }:
         {
-          default = pkgs.mkShellNoCC {
+          _module.args.pkgs = import inputs.nixpkgs {
+            inherit system;
+            overlays = [ inputs.self.overlays.default ];
+          };
+
+          devShells.default = pkgs.mkShellNoCC {
             packages = with pkgs; [
               gcc
               gradle
@@ -62,7 +58,6 @@
                 export JAVA_TOOL_OPTIONS="${loadLombok}${prev}"
               '';
           };
-        }
-      );
+        };
     };
 }

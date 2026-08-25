@@ -1,26 +1,14 @@
 {
   description = "A Nix-flake-based Python development environment";
 
-  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+  inputs = {
+    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+    flake-parts.url = "github:hercules-ci/flake-parts";
+  };
 
   outputs =
-    { self, ... }@inputs:
-
+    inputs:
     let
-      supportedSystems = [
-        "x86_64-linux"
-        "aarch64-linux"
-        "aarch64-darwin"
-      ];
-      forEachSupportedSystem =
-        f:
-        inputs.nixpkgs.lib.genAttrs supportedSystems (
-          system:
-          f {
-            pkgs = import inputs.nixpkgs { inherit system; };
-          }
-        );
-
       /*
         Change this value ({major}.{min}) to
         update the Python virtual-environment
@@ -37,9 +25,15 @@
       */
       version = "3.13";
     in
-    {
-      devShells = forEachSupportedSystem (
-        { pkgs }:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+      ];
+
+      perSystem =
+        { pkgs, ... }:
         let
           concatMajorMinor =
             v:
@@ -52,7 +46,7 @@
           python = pkgs."python${concatMajorMinor version}";
         in
         {
-          default = pkgs.mkShellNoCC {
+          devShells.default = pkgs.mkShellNoCC {
             venvDir = ".venv";
 
             postShellHook = ''
@@ -87,7 +81,6 @@
               # python.pkgs.ruff
             ];
           };
-        }
-      );
+        };
     };
 }

@@ -1,87 +1,47 @@
 {
   description = "Ready-made templates for easily creating flake-driven environments";
 
-  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1";
+  inputs = {
+    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+    flake-parts.url = "github:hercules-ci/flake-parts";
+  };
 
   outputs =
-    { self, ... }@inputs:
-    let
-      supportedSystems = [
+    inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
         "x86_64-linux"
         "aarch64-linux"
         "aarch64-darwin"
       ];
-      forEachSupportedSystem =
-        f:
-        inputs.nixpkgs.lib.genAttrs supportedSystems (
-          system:
-          f {
-            inherit system;
-            pkgs = import inputs.nixpkgs { inherit system; };
-          }
-        );
-    in
-    {
-      devShells = forEachSupportedSystem (
-        { pkgs, system }:
-        {
-          default =
-            let
-              getSystem = "SYSTEM=$(nix eval --impure --raw --expr 'builtins.currentSystem')";
-              forEachDir = exec: ''
-                for dir in */; do
-                  (
-                    cd "''${dir}"
 
-                    ${exec}
-                  )
-                done
-              '';
+      perSystem =
+        { config, pkgs, ... }:
+        let
+          getSystem = "SYSTEM=$(nix eval --impure --raw --expr 'builtins.currentSystem')";
+          forEachDir = exec: ''
+            shopt -s nullglob
 
-              script =
-                name: runtimeInputs: text:
-                pkgs.writeShellApplication {
-                  inherit name runtimeInputs text;
-                  bashOptions = [
-                    "errexit"
-                    "pipefail"
-                  ];
-                };
-            in
-            pkgs.mkShellNoCC {
-              packages =
-                with pkgs;
-                [
-                  (script "build" [ ] ''
-                    ${getSystem}
+            for manifest in */flake.nix */*/flake.nix; do
+              dir=$(dirname "''${manifest}")
+              (
+                cd "''${dir}"
 
-                    ${forEachDir ''
-                      echo "building ''${dir}"
-                      nix build ".#devShells.''${SYSTEM}.default"
-                    ''}
-                  '')
-                  (script "check" [ nixfmt ] (forEachDir ''
-                    echo "checking ''${dir}"
-                    nix flake check --all-systems --no-build
-                  ''))
-                  (script "format" [ nixfmt ] ''
-                    git ls-files '*.nix' | xargs nix fmt
-                  '')
-                  (script "check-formatting" [ nixfmt ] ''
-                    git ls-files '*.nix' | xargs nixfmt --check
-                  '')
-                ]
-                ++ [ self.formatter.${system} ];
+                ${exec}
+              )
+            done
+          '';
+
+          script =
+            name: runtimeInputs: text:
+            pkgs.writeShellApplication {
+              inherit name runtimeInputs text;
+              bashOptions = [
+                "errexit"
+                "pipefail"
+              ];
             };
-        }
-      );
 
-      formatter = forEachSupportedSystem ({ pkgs, ... }: pkgs.nixfmt);
-
-      packages = forEachSupportedSystem (
-        { pkgs, ... }:
-        rec {
-          default = dvt;
           dvt = pkgs.writeShellApplication {
             name = "dvt";
             bashOptions = [
@@ -100,61 +60,86 @@
                 --experimental-features 'nix-command flakes' \
                 flake init \
                 --template \
-                "https://flakehub.com/f/the-nix-way/dev-templates/0.1#''${TEMPLATE}"
+                "github:MrEhbr/dev-templates#''${TEMPLATE}"
             '';
           };
-        }
-      );
-    }
+        in
+        {
+          formatter = pkgs.nixfmt;
 
-    //
-
-      {
-        templates = {
-          go = {
-            path = ./go;
-            description = "Go (Golang) development environment";
+          packages = {
+            inherit dvt;
+            default = dvt;
           };
 
-          java = {
-            path = ./java;
-            description = "Java development environment";
-          };
+          devShells.default = pkgs.mkShellNoCC {
+            packages =
+              with pkgs;
+              [
+                (script "build" [ ] ''
+                  ${getSystem}
 
-          js = {
-            path = ./js;
-            description = "Javascript development environment";
-          };
-
-          php = {
-            path = ./php;
-            description = "PHP development environment";
-          };
-
-          python = {
-            path = ./python;
-            description = "Python development environment";
-          };
-
-          rust = {
-            path = ./rust;
-            description = "Rust development environment";
-          };
-
-          flutter = {
-            path = ./flutter;
-            description = "Flutter development environment";
-          };
-
-          zig = {
-            path = ./zig;
-            description = "Zig development environment";
-          };
-
-          services = {
-            path = ./services;
-            description = "Postgres and Redis services via services-flake";
+                  ${forEachDir ''
+                    echo "building ''${dir}"
+                    nix build ".#devShells.''${SYSTEM}.default"
+                  ''}
+                '')
+                (script "check" [ nixfmt ] (forEachDir ''
+                  echo "checking ''${dir}"
+                  nix flake check --all-systems --no-build
+                ''))
+                (script "format" [ nixfmt ] ''
+                  git ls-files '*.nix' | xargs nix fmt
+                '')
+                (script "check-formatting" [ nixfmt ] ''
+                  git ls-files '*.nix' | xargs nixfmt --check
+                '')
+              ]
+              ++ [ config.formatter ];
           };
         };
+
+      flake.templates = {
+        go = {
+          path = ./go;
+          description = "Go (Golang) development environment";
+        };
+
+        java = {
+          path = ./java;
+          description = "Java development environment";
+        };
+
+        js = {
+          path = ./js;
+          description = "Javascript development environment";
+        };
+
+        php = {
+          path = ./php;
+          description = "PHP development environment";
+        };
+
+        python = {
+          path = ./python;
+          description = "Python development environment";
+        };
+
+        rust = {
+          path = ./rust;
+          description = "Rust development environment";
+        };
+
+        flutter = {
+          path = ./flutter;
+          description = "Flutter development environment";
+        };
+
+        zig = {
+          path = ./zig;
+          description = "Zig development environment";
+        };
+
       };
+    };
 }
